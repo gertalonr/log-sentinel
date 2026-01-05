@@ -52,7 +52,7 @@
 
 1. **Clone the repository**
    ```bash
-   git clone [https://github.com/yourusername/log-sentinel.git](https://github.com/gertalonr/log-sentinel.git)
+   git clone https://github.com/gertalonr/log-sentinel.git
    cd log-sentinel
    ```
 
