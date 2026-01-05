@@ -115,4 +115,4 @@ LogSentinel will analyze the error logs and explain the timeout issue.
 ---
 
 ## 📄 License
-MIT © 2026 LogSentinel Team
+MIT © 2026 Germán Talón R.
