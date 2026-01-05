@@ -1,0 +1,42 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+
+# --- Entornos Virtuales (por si acaso creas uno local) ---
+venv/
+.venv/
+env/
+
+# --- Docker ---
+.docker/
+docker-compose.override.yml
+
+# --- Variables de Entorno (¡SEGURIDAD!) ---
+.env
+.env.local
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp

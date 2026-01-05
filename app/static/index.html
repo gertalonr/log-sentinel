@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LogSentinel Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .sidebar { min-height: 100vh; background-color: #343a40; color: white; }
+        .sidebar a { color: #ced4da; text-decoration: none; padding: 10px; display: block; }
+        .sidebar a:hover, .sidebar a.active { background-color: #495057; color: white; }
+        .chat-box { height: 400px; overflow-y: auto; background: white; border: 1px solid #ddd; padding: 10px; }
+        .message { margin-bottom: 10px; padding: 8px; border-radius: 5px; }
+        .message.user { background-color: #d1e7dd; text-align: right; }
+        .message.ai { background-color: #e2e3e5; text-align: left; }
+    </style>
+</head>
+<body>
+
+    <!-- LOGIN SECTION -->
+    <div id="login-section" class="container d-flex justify-content-center align-items-center vh-100">
+        <div class="card p-4 shadow-sm" style="width: 400px;">
+            <h3 class="text-center mb-4">LogSentinel Login</h3>
+            <form id="login-form">
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="email" class="form-control" required value="test@example.com">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="password" class="form-control" required value="strongpassword">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Login</button>
+            </form>
+            <div id="login-error" class="text-danger mt-3 text-center d-none">Invalid credentials</div>
+        </div>
+    </div>
+
+    <!-- DASHBOARD SECTION -->
+    <div id="dashboard-section" class="d-none">
+        <nav class="navbar navbar-dark bg-dark px-3">
+            <a class="navbar-brand" href="#">🛡️ LogSentinel</a>
+            <button class="btn btn-outline-light btn-sm" onclick="logout()">Logout</button>
+        </nav>
+
+        <div class="container-fluid">
+            <div class="row">
+                <!-- SIDEBAR: PROJECTS -->
+                <div class="col-md-2 sidebar p-3">
+                    <h5>Projects</h5>
+                    <div id="projects-list" class="mb-3">
+                        <!-- Projects loaded here -->
+                    </div>
+                    <button class="btn btn-success btn-sm w-100" onclick="createProject()">+ New Project</button>
+                </div>
+
+                <!-- MAIN: LOGS -->
+                <div class="col-md-6 p-4">
+                    <h3 id="current-project-title">Select a Project</h3>
+                    <div class="table-responsive bg-white shadow-sm p-3 rounded">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Level</th>
+                                    <th>Service</th>
+                                    <th>Message</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logs-table">
+                                <tr><td colspan="4" class="text-center">No logs found</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- RIGHT: AI CHAT -->
+                <div class="col-md-4 p-4">
+                   <div class="card shadow-sm h-100">
+                       <div class="card-header bg-primary text-white">🤖 LogSentinel AI</div>
+                       <div class="card-body d-flex flex-column">
+                           <div id="chat-box" class="chat-box mb-3 flex-grow-1">
+                               <div class="text-center text-muted small">Ask questions about your logs...</div>
+                           </div>
+                           <div class="input-group">
+                               <input type="text" id="chat-input" class="form-control" placeholder="What is the error?">
+                               <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+                           </div>
+                       </div>
+                   </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "/api/v1";
+        let token = localStorage.getItem("access_token");
+        let currentProjectId = null;
+
+        // AUTH
+        if (token) showDashboard();
+
+        document.getElementById("login-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+
+            const formData = new URLSearchParams();
+            formData.append("username", email);
+            formData.append("password", password);
+
+            try {
+                const res = await fetch(`${API_URL}/login`, { method: "POST", body: formData });
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                token = data.access_token;
+                localStorage.setItem("access_token", token);
+                showDashboard();
+            } catch (err) {
+                document.getElementById("login-error").classList.remove("d-none");
+            }
+        });
+
+        function logout() {
+            localStorage.removeItem("access_token");
+            location.reload();
+        }
+
+        function showDashboard() {
+            document.getElementById("login-section").classList.add("d-none");
+            document.getElementById("dashboard-section").classList.remove("d-none");
+            loadProjects();
+        }
+
+        // PROJECTS
+        async function loadProjects() {
+            const res = await fetch(`${API_URL}/projects/`, { headers: { "Authorization": `Bearer ${token}` } });
+            const projects = await res.json();
+            const list = document.getElementById("projects-list");
+            list.innerHTML = "";
+            projects.forEach(p => {
+                const a = document.createElement("a");
+                a.href = "#";
+                a.innerText = p.name;
+                a.onclick = () => selectProject(p.id, p.name);
+                list.appendChild(a);
+            });
+            if (projects.length > 0) selectProject(projects[0].id, projects[0].name);
+        }
+
+        async function createProject() {
+            const name = prompt("Project Name:");
+            if (!name) return;
+            await fetch(`${API_URL}/projects/`, {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ name })
+            });
+            loadProjects();
+        }
+
+        function selectProject(id, name) {
+            currentProjectId = id;
+            document.getElementById("current-project-title").innerText = `Logs for: ${name}`;
+            document.querySelectorAll(".sidebar a").forEach(a => a.classList.remove("active"));
+            event.target.classList.add("active");
+            loadLogs(id);
+            document.getElementById("chat-box").innerHTML = '<div class="text-center text-muted small">Ask questions about your logs...</div>';
+        }
+
+        // LOGS
+        async function loadLogs(projectId) {
+            const res = await fetch(`${API_URL}/logs/?project_id=${projectId}`, { headers: { "Authorization": `Bearer ${token}` } });
+            const logs = await res.json();
+            const tbody = document.getElementById("logs-table");
+            tbody.innerHTML = "";
+            if (logs.length === 0) {
+                 tbody.innerHTML = '<tr><td colspan="4" class="text-center">No logs found</td></tr>';
+                 return;
+            }
+            logs.forEach(log => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${new Date(log.received_at).toLocaleString()}</td>
+                    <td><span class="badge ${getBadge_class(log.level)}">${log.level}</span></td>
+                    <td>${log.service_name}</td>
+                    <td>${log.message}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function getBadge_class(level) {
+            if (level === "ERROR") return "bg-danger";
+            if (level === "WARN") return "bg-warning";
+            return "bg-info";
+        }
+
+        // CHAT (RAG)
+        async function sendMessage() {
+            const input = document.getElementById("chat-input");
+            const question = input.value;
+            if (!question || !currentProjectId) return;
+
+            addMessage(question, "user");
+            input.value = "";
+            input.disabled = true;
+
+            try {
+                const res = await fetch(`${API_URL}/chat/`, {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({ question, project_id: currentProjectId })
+                });
+                const data = await res.json();
+                addMessage(data.response, "ai");
+            } catch (err) {
+                addMessage("Error processing request.", "ai");
+            } finally {
+                input.disabled = false;
+                input.focus();
+            }
+        }
+
+        function addMessage(text, role) {
+            const box = document.getElementById("chat-box");
+            const div = document.createElement("div");
+            div.className = `message ${role}`;
+            div.innerText = text;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+    </script>
+</body>
+</html>
